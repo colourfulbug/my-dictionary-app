@@ -28,11 +28,10 @@ jobs:
 
       - name: Build APK
         run: |
-          # 使用 yes 命令自动回答 "y"，防止无人值守时卡死
           yes | flet build apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: my-dictionary-apk
-          path: build/apk/app-release.apk
+          path: build/**/*.apk
