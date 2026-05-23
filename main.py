@@ -4,11 +4,15 @@ import requests
 def main(page: ft.Page):
     # --- 1. 页面基础设置 ---
     page.title = "智能词典"
+    page.window_width = 420
+    page.window_height = 800
+    page.window_resizable = False  
     page.bgcolor = ft.Colors.BLUE_GREY_50
-    page.padding = 20
-    page.spacing = 10
+    # 清空页面默认边距，完全交由容器精细化控制
+    page.padding = 0
+    page.spacing = 0
 
-    # --- 2. 手机端安全存储机制 ---
+    # --- 2. 本地数据处理 ---
     history_data = []
     try:
         history_data = page.client_storage.get("history") or []
@@ -38,7 +42,6 @@ def main(page: ft.Page):
         border_radius=10
     )
     
-    # 结果展示与历史展示，采用独立扁平设计
     result_view = ft.Column(spacing=15, scroll="auto")
     history_list = ft.Column(spacing=10, scroll="auto")
 
@@ -161,12 +164,24 @@ def main(page: ft.Page):
         refresh_history()
         page.update()
 
-    # --- 6. 极简安全路由切换（彻底杜绝嵌套导致的白屏崩溃） ---
+    # --- 6. 安全路由切换（精细控制左右缩进，强行往屏幕内部挤） ---
     def show_search_page():
         page.controls.clear()
         page.add(
-            ft.Row([search_input, ft.ElevatedButton("翻译", on_click=lambda e: execute_search(search_input.value))]),
-            ft.Container(content=result_view, expand=True), # 仅在这里让结果展示区自动拉伸
+            # 💡 【核心改动】：给输入栏加上左右各 15 的边距，绝不再贴边
+            ft.Container(
+                content=ft.Row([
+                    search_input, 
+                    ft.ElevatedButton("翻译", on_click=lambda e: execute_search(search_input.value))
+                ], spacing=10),
+                padding=ft.padding.only(left=15, right=15, top=20)
+            ),
+            # 结果显示区也加上边距
+            ft.Container(
+                content=result_view, 
+                expand=True, 
+                padding=ft.padding.only(left=15, right=15)
+            ),
             bottom_nav
         )
         page.update()
@@ -175,16 +190,25 @@ def main(page: ft.Page):
         refresh_history()
         page.controls.clear()
         page.add(
-            ft.Row([
-                ft.Text("查询历史", size=22, weight="bold", color=ft.Colors.BLUE_GREY_900),
-                ft.TextButton("清空历史", on_click=lambda e: clear_history())
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ft.Container(content=history_list, expand=True), # 仅在这里让历史展示区自动拉伸
+            # 历史标题栏加上边距
+            ft.Container(
+                content=ft.Row([
+                    ft.Text("查询历史", size=22, weight="bold", color=ft.Colors.BLUE_GREY_900),
+                    ft.TextButton("清空历史", on_click=lambda e: clear_history())
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                padding=ft.padding.only(left=15, right=15, top=20)
+            ),
+            # 历史展示区加上边距
+            ft.Container(
+                content=history_list, 
+                expand=True, 
+                padding=ft.padding.only(left=15, right=15)
+            ),
             bottom_nav
         )
         page.update()
 
-    # 底部导航栏设计
+    # 💡 【优化】：底部导航栏缩进并添加左右边距，像一个小药丸一样悬浮在底部，安全且高级
     bottom_nav = ft.Container(
         content=ft.Row([
             ft.TextButton("🔍 查词翻译", expand=True, on_click=lambda e: show_search_page()),
@@ -192,10 +216,11 @@ def main(page: ft.Page):
         ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
         bgcolor=ft.Colors.WHITE,
         padding=10,
-        border_radius=10
+        margin=ft.margin.only(left=15, right=15, bottom=15),
+        border_radius=15
     )
 
-    # 启动时默认加载查词页
+    # 启动默认进入查词页
     show_search_page()
 
 if __name__ == "__main__":
