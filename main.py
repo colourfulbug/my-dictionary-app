@@ -8,9 +8,8 @@ def main(page: ft.Page):
     page.window_height = 800
     page.window_resizable = False  
     page.bgcolor = ft.Colors.BLUE_GREY_50
-    # 清空页面默认边距，完全交由容器精细化控制
-    page.padding = 0
-    page.spacing = 0
+    page.padding = 20
+    page.spacing = 10
 
     # --- 2. 本地数据处理 ---
     history_data = []
@@ -33,8 +32,10 @@ def main(page: ft.Page):
         return str(node)
 
     # --- 3. 定义 UI 基础控件 ---
+    # 【修改点】：删去了 expand=True，固定宽度为 250，保证在任何手机屏幕上都不会撑破边缘
     search_input = ft.TextField(
         hint_text="输入中文或英文...", 
+        width=250,  
         color=ft.Colors.BLACK87,  
         hint_style=ft.TextStyle(color=ft.Colors.BLACK38),  
         bgcolor=ft.Colors.WHITE,  
@@ -164,24 +165,16 @@ def main(page: ft.Page):
         refresh_history()
         page.update()
 
-    # --- 6. 安全路由切换（精细控制左右缩进，强行往屏幕内部挤） ---
+    # --- 6. 极简安全路由切换（彻底回退到上一个正常版的无嵌套架构） ---
     def show_search_page():
         page.controls.clear()
         page.add(
-            # 💡 【核心改动】：给输入栏加上左右各 15 的边距，绝不再贴边
-            ft.Container(
-                content=ft.Row([
-                    search_input, 
-                    ft.ElevatedButton("翻译", on_click=lambda e: execute_search(search_input.value))
-                ], spacing=10),
-                padding=ft.padding.only(left=15, right=15, top=20)
-            ),
-            # 结果显示区也加上边距
-            ft.Container(
-                content=result_view, 
-                expand=True, 
-                padding=ft.padding.only(left=15, right=15)
-            ),
+            # 【修改点】：直接通过 Row 居中对齐，让输入框和翻译按钮整体往中间挪，两边自然空出安全距离
+            ft.Row([
+                search_input, 
+                ft.ElevatedButton("翻译", on_click=lambda e: execute_search(search_input.value))
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
+            ft.Container(content=result_view, expand=True), 
             bottom_nav
         )
         page.update()
@@ -190,34 +183,23 @@ def main(page: ft.Page):
         refresh_history()
         page.controls.clear()
         page.add(
-            # 历史标题栏加上边距
-            ft.Container(
-                content=ft.Row([
-                    ft.Text("查询历史", size=22, weight="bold", color=ft.Colors.BLUE_GREY_900),
-                    ft.TextButton("清空历史", on_click=lambda e: clear_history())
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                padding=ft.padding.only(left=15, right=15, top=20)
-            ),
-            # 历史展示区加上边距
-            ft.Container(
-                content=history_list, 
-                expand=True, 
-                padding=ft.padding.only(left=15, right=15)
-            ),
+            ft.Row([
+                ft.Text("查询历史", size=22, weight="bold", color=ft.Colors.BLUE_GREY_900),
+                ft.TextButton("清空历史", on_click=lambda e: clear_history())
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Container(content=history_list, expand=True), 
             bottom_nav
         )
         page.update()
 
-    # 💡 【优化】：底部导航栏缩进并添加左右边距，像一个小药丸一样悬浮在底部，安全且高级
+    # 【已回退】：完全恢复到上一个正常版本的导航栏，不做任何多余的 margin 改动
     bottom_nav = ft.Container(
         content=ft.Row([
             ft.TextButton("🔍 查词翻译", expand=True, on_click=lambda e: show_search_page()),
             ft.TextButton("🕒 查询历史", expand=True, on_click=lambda e: show_history_page()),
         ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
         bgcolor=ft.Colors.WHITE,
-        padding=10,
-        margin=ft.margin.only(left=15, right=15, bottom=15),
-        border_radius=15
+        padding=10
     )
 
     # 启动默认进入查词页
