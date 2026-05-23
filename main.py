@@ -1,35 +1,22 @@
 import flet as ft
 import requests
-import json
-import os
-
-DATA_FILE = "mobile_dict_data.json"
 
 def main(page: ft.Page):
     # --- 1. 页面基础设置 ---
     page.title = "智能词典"
-    
-    # 强制在电脑预览时锁定为手机屏幕比例
     page.window_width = 420
     page.window_height = 800
-    page.window_resizable = False  # 在电脑上禁止缩放，锁定手机比例
-    
+    page.window_resizable = False  
     page.bgcolor = ft.Colors.BLUE_GREY_50
     page.padding = 0
     page.spacing = 0
 
-    # --- 2. 本地数据处理 ---
-    history_data = []
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, 'r', encoding='utf-8') as f:
-                history_data = json.load(f).get("history", [])
-        except:
-            pass
+    # --- 2. 手机端安全存储机制 ---
+    # 【已升级】：采用 Flet 原生安全存储，不产生本地 json 文件，100% 绕过安卓写文件权限封锁！
+    history_data = page.client_storage.get("history") or []
 
     def save_data():
-        with open(DATA_FILE, 'w', encoding='utf-8') as f:
-            json.dump({"history": history_data[:50]}, f, ensure_ascii=False)
+        page.client_storage.set("history", history_data[:50])
 
     # 递归提取纯文本
     def extract_text(node):
@@ -43,10 +30,10 @@ def main(page: ft.Page):
         hint_text="输入中文或英文...", 
         expand=True, 
         border_radius=10,
-        color=ft.Colors.BLACK87,  # 输入文字颜色：深黑
-        hint_style=ft.TextStyle(color=ft.Colors.BLACK38),  # 占位文字：深灰
-        bgcolor=ft.Colors.WHITE,  # 输入框背景：纯白
-        border_color=ft.Colors.BLUE_300  # 边框：柔和蓝
+        color=ft.Colors.BLACK87,  
+        hint_style=ft.TextStyle(color=ft.Colors.BLACK38),  
+        bgcolor=ft.Colors.WHITE,  
+        border_color=ft.Colors.BLUE_300  
     )
     
     result_view = ft.Column(scroll="auto", expand=True, spacing=15)
@@ -95,7 +82,7 @@ def main(page: ft.Page):
                 )
             )
 
-            # 1. 解析释义
+            # 解析释义
             trans_list = []
             if "ec" in data:
                 for tr in data["ec"]["word"][0].get("trs", []):
@@ -122,31 +109,30 @@ def main(page: ft.Page):
                     )
                 )
 
-            # 2. 解析并清洗例句中的 HTML 标签
+            # 解析并清洗例句中的 HTML 标签
             if "blng_sents_part" in data:
-                sents = data["blng_sents_part"].get("sentence-pair", [])[:3] # 获取前 3 个例句
+                sents = data["blng_sents_part"].get("sentence-pair", [])[:3] 
                 if sents:
                     sents_col = ft.Column([
                         ft.Text("📝 实用例句", size=18, weight="bold", color=ft.Colors.BLUE_700),
-                        ft.Container(height=5) # 间距
+                        ft.Container(height=5) 
                     ])
                     
                     for idx, sent in enumerate(sents):
                         eng = sent.get("sentence-eng", "")
                         chn = sent.get("sentence-translation", "")
                         
-                        # 【已修复】：利用字符串替换，彻底清洗掉英文句子中残留的 <b> 和 </b> 网页高亮标签
+                        # 清洗网页高亮标签
                         clean_eng = eng.replace("<b>", "").replace("</b>", "")
                         
                         sents_col.controls.append(
                             ft.Column([
                                 ft.Text(f"{idx+1}. {clean_eng}", size=15, weight="bold", color=ft.Colors.BLACK87),
                                 ft.Text(chn, size=14, color=ft.Colors.GREY_700),
-                                ft.Container(height=5) # 例句之间的微小间距
+                                ft.Container(height=5) 
                             ], spacing=2)
                         )
                         
-                    # 渲染例句卡片
                     result_view.controls.append(
                         ft.Container(
                             content=sents_col,
@@ -156,7 +142,7 @@ def main(page: ft.Page):
                         )
                     )
 
-            # 保存历史
+            # 安全地保存历史记录
             if word_title in history_data:
                 history_data.remove(word_title)
             history_data.insert(0, word_title)
@@ -168,7 +154,7 @@ def main(page: ft.Page):
         
         page.update()
 
-    # --- 5. 历史记录逻辑 ---
+    # --- 5. 历史记录展示逻辑 ---
     def refresh_history():
         history_list.controls.clear()
         for w in history_data:
