@@ -4,19 +4,22 @@ import requests
 def main(page: ft.Page):
     # --- 1. 页面基础设置 ---
     page.title = "智能词典"
-    page.window_width = 420
-    page.window_height = 800
-    page.window_resizable = False  
     page.bgcolor = ft.Colors.BLUE_GREY_50
-    page.padding = 0
-    page.spacing = 0
+    page.padding = 20
+    page.spacing = 10
 
     # --- 2. 手机端安全存储机制 ---
-    # 【已升级】：采用 Flet 原生安全存储，不产生本地 json 文件，100% 绕过安卓写文件权限封锁！
-    history_data = page.client_storage.get("history") or []
+    history_data = []
+    try:
+        history_data = page.client_storage.get("history") or []
+    except:
+        pass
 
     def save_data():
-        page.client_storage.set("history", history_data[:50])
+        try:
+            page.client_storage.set("history", history_data[:50])
+        except:
+            pass
 
     # 递归提取纯文本
     def extract_text(node):
@@ -25,37 +28,19 @@ def main(page: ft.Page):
         elif isinstance(node, list): return "".join(extract_text(x) for x in node)
         return str(node)
 
-    # --- 3. 定义 UI 控件 ---
+    # --- 3. 定义 UI 基础控件 ---
     search_input = ft.TextField(
         hint_text="输入中文或英文...", 
-        expand=True, 
-        border_radius=10,
         color=ft.Colors.BLACK87,  
         hint_style=ft.TextStyle(color=ft.Colors.BLACK38),  
         bgcolor=ft.Colors.WHITE,  
-        border_color=ft.Colors.BLUE_300  
+        border_color=ft.Colors.BLUE_300,
+        border_radius=10
     )
     
-    result_view = ft.Column(scroll="auto", expand=True, spacing=15)
-    history_list = ft.Column(scroll="auto", expand=True, spacing=10)
-
-    # 查词页面
-    search_page = ft.Column([
-        ft.Row([search_input, ft.ElevatedButton("翻译", on_click=lambda e: execute_search(search_input.value))]),
-        result_view
-    ], expand=True)
-
-    # 历史页面
-    history_page = ft.Column([
-        ft.Row([
-            ft.Text("查询历史", size=22, weight="bold", color=ft.Colors.BLUE_GREY_900),
-            ft.TextButton("清空历史", on_click=lambda e: clear_history())
-        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-        history_list
-    ], expand=True)
-
-    # 主内容容器
-    main_content = ft.Container(content=search_page, expand=True, padding=20)
+    # 结果展示与历史展示，采用独立扁平设计
+    result_view = ft.Column(spacing=15, scroll="auto")
+    history_list = ft.Column(spacing=10, scroll="auto")
 
     # --- 4. 核心查词与例句逻辑 ---
     def execute_search(word):
@@ -121,8 +106,6 @@ def main(page: ft.Page):
                     for idx, sent in enumerate(sents):
                         eng = sent.get("sentence-eng", "")
                         chn = sent.get("sentence-translation", "")
-                        
-                        # 清洗网页高亮标签
                         clean_eng = eng.replace("<b>", "").replace("</b>", "")
                         
                         sents_col.controls.append(
@@ -142,7 +125,7 @@ def main(page: ft.Page):
                         )
                     )
 
-            # 安全地保存历史记录
+            # 保存历史
             if word_title in history_data:
                 history_data.remove(word_title)
             history_data.insert(0, word_title)
@@ -154,7 +137,7 @@ def main(page: ft.Page):
         
         page.update()
 
-    # --- 5. 历史记录展示逻辑 ---
+    # --- 5. 历史记录逻辑 ---
     def refresh_history():
         history_list.controls.clear()
         for w in history_data:
@@ -169,7 +152,7 @@ def main(page: ft.Page):
 
     def search_from_history(word):
         search_input.value = word
-        switch_tab(0)
+        show_search_page()
         execute_search(word)
 
     def clear_history():
@@ -178,31 +161,42 @@ def main(page: ft.Page):
         refresh_history()
         page.update()
 
-    # --- 6. 页面切换导航 ---
-    def switch_tab(index):
-        if index == 0:
-            main_content.content = search_page
-        else:
-            refresh_history()
-            main_content.content = history_page
+    # --- 6. 极简安全路由切换（彻底杜绝嵌套导致的白屏崩溃） ---
+    def show_search_page():
+        page.controls.clear()
+        page.add(
+            ft.Row([search_input, ft.ElevatedButton("翻译", on_click=lambda e: execute_search(search_input.value))]),
+            ft.Container(content=result_view, expand=True), # 仅在这里让结果展示区自动拉伸
+            bottom_nav
+        )
         page.update()
 
+    def show_history_page():
+        refresh_history()
+        page.controls.clear()
+        page.add(
+            ft.Row([
+                ft.Text("查询历史", size=22, weight="bold", color=ft.Colors.BLUE_GREY_900),
+                ft.TextButton("清空历史", on_click=lambda e: clear_history())
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Container(content=history_list, expand=True), # 仅在这里让历史展示区自动拉伸
+            bottom_nav
+        )
+        page.update()
+
+    # 底部导航栏设计
     bottom_nav = ft.Container(
         content=ft.Row([
-            ft.TextButton("🔍 查词翻译", expand=True, on_click=lambda e: switch_tab(0)),
-            ft.TextButton("🕒 查询历史", expand=True, on_click=lambda e: switch_tab(1)),
+            ft.TextButton("🔍 查词翻译", expand=True, on_click=lambda e: show_search_page()),
+            ft.TextButton("🕒 查询历史", expand=True, on_click=lambda e: show_history_page()),
         ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
         bgcolor=ft.Colors.WHITE,
-        padding=10
+        padding=10,
+        border_radius=10
     )
 
-    # 整体装载
-    page.add(
-        ft.Column([
-            main_content,
-            bottom_nav
-        ], expand=True, spacing=0)
-    )
+    # 启动时默认加载查词页
+    show_search_page()
 
 if __name__ == "__main__":
     ft.app(target=main)
